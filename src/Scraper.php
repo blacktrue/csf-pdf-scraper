@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace PhpCfdi\CsfPdfScraper;
 
+use Facebook\WebDriver\Exception\NoSuchElementException;
 use Facebook\WebDriver\Exception\TimeoutException;
-use Facebook\WebDriver\WebDriver;
 use GuzzleHttp\Client;
+use PhpCfdi\CsfPdfScraper\Contracts\BrowserClientInterface;
 use PhpCfdi\CsfPdfScraper\Exceptions\InvalidCaptchaException;
 use PhpCfdi\CsfPdfScraper\Exceptions\InvalidCredentialsException;
 use PhpCfdi\CsfPdfScraper\Exceptions\PDFDownloadException;
@@ -19,7 +20,7 @@ class Scraper
     public function __construct(
         private Credentials $credentials,
         private CaptchaResolverInterface $captchaResolver,
-        private WebDriver $webDriver,
+        private BrowserClientInterface $browserClient,
         private Client $client,
         private int $timeout = 30
     ) {
@@ -31,14 +32,14 @@ class Scraper
      */
     private function login(): void
     {
-        $this->webDriver->get(URL::LOGIN_URL);
+        $this->browserClient->get(URL::LOGIN_URL);
         try {
-            $this->webDriver->waitFor('#divCaptcha', $this->timeout);
-        } catch (TimeoutException $exception) {
+            $this->browserClient->waitFor('#divCaptcha', $this->timeout);
+        } catch (TimeoutException | NoSuchElementException $exception) {
             throw new SatScraperException(sprintf('The %s page does not load as expected', URL::LOGIN_URL), 0, $exception);
         }
 
-        $captcha = $this->webDriver->getCrawler()
+        $captcha = $this->browserClient->getCrawler()
             ->filter('#divCaptcha > img')
             ->first();
 
@@ -46,7 +47,7 @@ class Scraper
 
         $value = $this->captchaResolver->resolve($image);
 
-        $form = $this->webDriver->getCrawler()
+        $form = $this->browserClient->getCrawler()
             ->selectButton('submit')
             ->form();
 
@@ -56,9 +57,9 @@ class Scraper
             'userCaptcha' => $value->getValue(),
         ]);
 
-        $this->webDriver->submit($form);
+        $this->browserClient->submit($form);
 
-        $html = $this->webDriver->getCrawler()->html();
+        $html = $this->browserClient->getCrawler()->html();
         if (str_contains($html, 'Captcha no válido')) {
             throw new InvalidCaptchaException('The provided captcha is invalid');
         }
@@ -70,25 +71,25 @@ class Scraper
 
     private function buildConstancia(): void
     {
-        $this->webDriver->get(URL::MAIN_URL);
+        $this->browserClient->get(URL::MAIN_URL);
         try {
-            $this->webDriver->waitFor('#idPanelReimpAcuse_header', $this->timeout);
-        } catch (TimeoutException $exception) {
+            $this->browserClient->waitFor('#idPanelReimpAcuse_header', $this->timeout);
+        } catch (TimeoutException | NoSuchElementException $exception) {
             throw new SatScraperException(sprintf('The %s page does not load as expected', URL::MAIN_URL), 0, $exception);
         }
 
-        $form = $this->webDriver->getCrawler()
+        $form = $this->browserClient->getCrawler()
             ->selectButton('Generar Constancia')
             ->form();
 
-        $this->webDriver->submit($form);
+        $this->browserClient->submit($form);
     }
 
     private function logout(): void
     {
-        $this->webDriver->get(URL::LOGOUT_URL);
-        $this->webDriver->waitFor('#campo-busqueda', $this->timeout);
-        $this->webDriver->getCrawler()
+        $this->browserClient->get(URL::LOGOUT_URL);
+        $this->browserClient->waitFor('#campo-busqueda', $this->timeout);
+        $this->browserClient->getCrawler()
             ->selectButton('Cerrar sesión')
             ->click();
     }
@@ -98,7 +99,7 @@ class Scraper
         $this->login();
         $this->buildConstancia();
 
-        $cookieParser = new CookieParser($this->webDriver->getCookieJar());
+        $cookieParser = new CookieParser($this->browserClient->getCookieJar());
 
         try {
             $response = $this->client->request('GET',
