@@ -26,7 +26,7 @@ Usa [composer](https://getcomposer.org/)
 composer require phpcfdi/csf-pdf-scraper
 ```
 
-Esta librería hace uso WebDriver y tienes dos opciones para elegir: ChromeDriver y geckodriver. Puedes usar los comandos acontinuación para instalarlos:
+Esta librería hace uso WebDriver y tienes dos opciones para elegir: ChromeDriver y geckodriver. Puedes usar los comandos a continuación para instalarlos:
 
 ```shell
 composer require --dev dbrekelmans/bdi
@@ -49,8 +49,10 @@ use PhpCfdi\CsfPdfScraper\Credentials;
 use PhpCfdi\CsfPdfScraper\Scraper;
 use PhpCfdi\ImageCaptchaResolver\Resolvers\ConsoleResolver;
 use Symfony\Component\Panther\Client;
+use PhpCfdi\CsfPdfScraper\PantherBrowserClient;
 
-$client = Client::createChromeClient();
+$chromeClient = Client::createChromeClient();
+$client = new PantherBrowserClient($chromeClient);
 $http = new \GuzzleHttp\Client();
 $resolver = new ConsoleResolver();
 $credentials = new Credentials('XAXX010101000', 'clave-ciec');
